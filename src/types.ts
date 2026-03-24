@@ -4,6 +4,10 @@ export interface EyeData {
   cylinder: number;
   flatRadius: number;
   steepRadius: number;
+  trialPower: number;
+  trialRadius: number;
+  overRefraction: number;
+  overRefractionSign: '+' | '-';
   adjustmentSteps: number;
 }
 

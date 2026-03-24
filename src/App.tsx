@@ -16,6 +16,11 @@ const convertToCornealPlane = (power: number): number => {
   return power / (1 - VERTEX_DISTANCE * power);
 };
 
+const convertToSpectaclePlane = (power: number): number => {
+  if (power === 0) return 0;
+  return power / (1 + VERTEX_DISTANCE * power);
+};
+
 export default function App() {
   // RGP State
   const [rgpData, setRgpData] = useState<EyeData>({
@@ -24,6 +29,10 @@ export default function App() {
     cylinder: 0,
     flatRadius: 0,
     steepRadius: 0,
+    trialPower: 0,
+    trialRadius: 0,
+    overRefraction: 0,
+    overRefractionSign: '-',
     adjustmentSteps: 0,
   });
 
@@ -71,8 +80,8 @@ export default function App() {
     field: keyof EyeData,
     value: string | '+' | '-' | number
   ) => {
-    if (field === 'sphereSign') {
-      setRgpData({ ...rgpData, sphereSign: value as '+' | '-' });
+    if (field === 'sphereSign' || field === 'overRefractionSign') {
+      setRgpData({ ...rgpData, [field]: value as '+' | '-' });
     } else if (field === 'adjustmentSteps') {
       setRgpData({ ...rgpData, adjustmentSteps: value as number });
     } else {
@@ -80,8 +89,8 @@ export default function App() {
       // Fixed-point logic: strip all non-digits and treat as value / 100
       const cleanStr = valStr.replace(/\D/g, '');
       
-      const isDegreeField = field === 'sphere' || field === 'cylinder';
-      const isRadiusField = field === 'flatRadius' || field === 'steepRadius';
+      const isDegreeField = field === 'sphere' || field === 'cylinder' || field === 'trialPower' || field === 'overRefraction';
+      const isRadiusField = field === 'flatRadius' || field === 'steepRadius' || field === 'trialRadius';
       
       let numValue = parseFloat(valStr) || 0;
 
@@ -105,6 +114,10 @@ export default function App() {
       cylinder: 0,
       flatRadius: 0,
       steepRadius: 0,
+      trialPower: 0,
+      trialRadius: 0,
+      overRefraction: 0,
+      overRefractionSign: '-',
       adjustmentSteps: 0,
     });
   };
@@ -117,23 +130,26 @@ export default function App() {
           <div>
             <h1 className="text-3xl font-light tracking-tight flex items-center gap-3">
               <Calculator className="w-8 h-8 text-blue-600" />
-              角膜弧度計算程式
+              RGP處方計算
             </h1>
             <p className="text-gray-500 mt-1 text-sm">Eye Prescription & K-Value Calculator</p>
           </div>
-          <button 
-            onClick={resetAll}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            <RefreshCw className="w-4 h-4" />
-            重設資料
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">製作人 ＴＯＮＹ</span>
+            <button 
+              onClick={resetAll}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <RefreshCw className="w-4 h-4" />
+              重設資料
+            </button>
+          </div>
         </header>
 
         {/* Eye Data Grid */}
         <div className="max-w-2xl mx-auto">
           <EyeSection 
-            title="RGP" 
+            title="處方輸入" 
             data={rgpData} 
             result={rgpResult}
             onChange={handleInputChange}
@@ -142,7 +158,7 @@ export default function App() {
 
         {/* Summary Footer */}
         <footer className="text-center text-xs text-gray-400 pt-8 border-t border-gray-200">
-          <p>© 2026 角膜弧度計算程式 • 專業眼科工具</p>
+          <p>© 2026 RGP處方計算 • 專業眼科工具</p>
           <p className="mt-1">計算公式: 近視 + (閃光 - 角膜散光) ÷ 2</p>
         </footer>
       </div>
@@ -197,7 +213,7 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
       <div className="p-6 space-y-6 flex-grow">
         <div className="grid grid-cols-2 gap-4">
           <InputGroup 
-            label="眼鏡近視 (Sphere)" 
+            label="眼鏡近視" 
             value={data.sphere} 
             onChange={(v) => onChange('sphere', v)} 
             sign={data.sphereSign}
@@ -206,14 +222,14 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
             secondaryValue={`CL: ${clSphere}`}
           />
           <InputGroup 
-            label="眼鏡散光 (Cylinder)" 
+            label="眼鏡散光" 
             value={data.cylinder} 
             onChange={(v) => onChange('cylinder', v)} 
             sign="-"
             secondaryValue={`CL: ${clCylinder}`}
           />
           <InputGroup 
-            label="平K半徑 (Flat R)" 
+            label="平K" 
             value={data.flatRadius} 
             onChange={(v) => onChange('flatRadius', v)} 
             placeholder="如 7.60" 
@@ -221,13 +237,65 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
             secondaryValue={data.flatRadius > 0 ? `${(K_CONSTANT / data.flatRadius).toFixed(2)} D` : undefined}
           />
           <InputGroup 
-            label="陡K半徑 (Steep R)" 
+            label="陡K" 
             value={data.steepRadius} 
             onChange={(v) => onChange('steepRadius', v)} 
             placeholder="如 7.40" 
             precision={2}
             secondaryValue={data.steepRadius > 0 ? `${(K_CONSTANT / data.steepRadius).toFixed(2)} D` : undefined}
           />
+          <InputGroup 
+            label="試片度數" 
+            value={data.trialPower} 
+            onChange={(v) => onChange('trialPower', v)} 
+            placeholder="如 3.00" 
+            sign="-"
+          />
+          <InputGroup 
+            label="試片弧度" 
+            value={data.trialRadius} 
+            onChange={(v) => onChange('trialRadius', v)} 
+            placeholder="如 7.60" 
+            precision={2}
+          />
+          <InputGroup 
+            label="插片度數" 
+            value={data.overRefraction} 
+            onChange={(v) => onChange('overRefraction', v)} 
+            placeholder="如 0.25" 
+            sign={data.overRefractionSign}
+            onSignChange={(s) => onChange('overRefractionSign', s)}
+            allowSignToggle
+          />
+          <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex flex-col justify-center">
+            <div className="flex justify-between items-start mb-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">插片建議值</p>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-medium text-blue-600">
+                {(() => {
+                  if (!result || data.trialPower === 0 || data.trialRadius === 0) return '--';
+                  const idealRadius = result.finalRadius;
+                  const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
+                  
+                  // Ideal Power at the rounded ideal radius
+                  const idealPower = result.finalPower + ((roundedIdealRadius - result.finalRadius) * 100 * CORRECTION_FACTOR);
+                  
+                  // Target Power at the trial radius (FAP: Flatter Add Plus)
+                  // If trialRadius is flatter (larger) than roundedIdealRadius, we need more plus power.
+                  const targetPowerAtTrialRadius = idealPower + ((data.trialRadius - roundedIdealRadius) * 100 * CORRECTION_FACTOR);
+                  
+                  // OR = Target Power - Trial Power
+                  const trialPower = -Math.abs(data.trialPower);
+                  const orPowerCorneal = targetPowerAtTrialRadius - trialPower;
+                  
+                  const orPowerSpectacle = convertToSpectaclePlane(orPowerCorneal);
+                  return `${orPowerSpectacle > 0 ? '+' : ''}${orPowerSpectacle.toFixed(2)}`;
+                })()}
+              </span>
+              <span className="text-xs font-bold text-blue-400 uppercase">D</span>
+            </div>
+          </div>
         </div>
 
         {/* Results Area */}
@@ -242,41 +310,43 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
                 className="space-y-4"
               >
                 <div className="flex flex-col gap-4">
-                  {/* Box 1: Ideal Value */}
-                  <div className="bg-blue-600 p-5 rounded-2xl text-white shadow-lg shadow-blue-200 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-3 opacity-10">
-                      <Calculator className="w-16 h-16" />
-                    </div>
-                    
-                    <div className="relative z-10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">理想值 (Ideal)</p>
-                      <div className="flex items-center gap-3">
-                        {(() => {
-                          const idealRadius = result.finalRadius;
-                          const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
-                          const radiusDiff = roundedIdealRadius - idealRadius;
-                          const idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
-                          
-                          return (
-                            <>
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-4xl font-light tracking-tighter">
-                                  {idealPower > 0 ? '+' : ''}{idealPower.toFixed(2)}
-                                </span>
-                                <span className="text-sm opacity-60 font-medium">D</span>
-                              </div>
-                              
-                              <span className="text-3xl font-thin opacity-30">/</span>
-                              
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-4xl font-light tracking-tighter">
-                                  {roundedIdealRadius.toFixed(2)}
-                                </span>
-                                <span className="text-sm opacity-60 font-medium">mm</span>
-                              </div>
-                            </>
-                          );
-                        })()}
+                  <div className="flex flex-col md:flex-row gap-4">
+                    {/* Box 1: Ideal Value */}
+                    <div className="flex-1 bg-blue-600 p-5 rounded-2xl text-white shadow-lg shadow-blue-200 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-3 opacity-10">
+                        <Calculator className="w-16 h-16" />
+                      </div>
+                      
+                      <div className="relative z-10">
+                        <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">計算理想值</p>
+                        <div className="flex items-center gap-3">
+                          {(() => {
+                            const idealRadius = result.finalRadius;
+                            const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
+                            const radiusDiff = roundedIdealRadius - idealRadius;
+                            const idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
+                            
+                            return (
+                              <>
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-4xl font-light tracking-tighter">
+                                    {idealPower > 0 ? '+' : ''}{idealPower.toFixed(2)}
+                                  </span>
+                                  <span className="text-sm opacity-60 font-medium">D</span>
+                                </div>
+                                
+                                <span className="text-3xl font-thin opacity-30">/</span>
+                                
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-4xl font-light tracking-tighter">
+                                    {roundedIdealRadius.toFixed(2)}
+                                  </span>
+                                  <span className="text-sm opacity-60 font-medium">mm</span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -287,7 +357,7 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
                       onClick={() => onChange('adjustmentSteps', data.adjustmentSteps - 1)}
                       className="flex-1 bg-white border border-gray-200 hover:border-blue-400 text-blue-600 px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
                     >
-                      緊一格 (-0.05)
+                      緊一格
                     </button>
                     
                     <button
@@ -301,54 +371,72 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
                       onClick={() => onChange('adjustmentSteps', data.adjustmentSteps + 1)}
                       className="flex-1 bg-white border border-gray-200 hover:border-blue-400 text-blue-600 px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
                     >
-                      鬆一格 (+0.05)
+                      鬆一格
                     </button>
                   </div>
 
-                  {/* Box 2: Adjusted Value */}
-                  <div className="bg-blue-500 p-5 rounded-2xl text-white shadow-lg shadow-blue-100 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-3 opacity-10">
-                      <RefreshCw className="w-16 h-16" />
-                    </div>
-                    
-                    <div className="relative z-10">
-                      <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">
-                        建議值 (Suggested) {data.adjustmentSteps !== 0 && (
-                          <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-[9px]">
-                            {data.adjustmentSteps > 0 ? '+' : ''}{data.adjustmentSteps} 格
-                          </span>
-                        )}
-                      </p>
-                      <div className="flex items-center gap-3">
-                        {(() => {
-                          const idealRadius = result.finalRadius;
-                          const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
-                          const radiusDiff = roundedIdealRadius - idealRadius;
-                          const idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
-                          
-                          const adjRadius = roundedIdealRadius + (data.adjustmentSteps * RADIUS_STEP);
-                          const adjPower = idealPower + (data.adjustmentSteps * RADIUS_STEP * 100 * CORRECTION_FACTOR);
-                          
-                          return (
-                            <>
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-4xl font-light tracking-tighter">
-                                  {adjPower > 0 ? '+' : ''}{adjPower.toFixed(2)}
-                                </span>
-                                <span className="text-sm opacity-60 font-medium">D</span>
-                              </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Box 2: Adjusted Value */}
+                    <div className="bg-blue-500 p-5 rounded-2xl text-white shadow-lg shadow-blue-100 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-3 opacity-10">
+                        <RefreshCw className="w-16 h-16" />
+                      </div>
+                      
+                      <div className="relative z-10">
+                        <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">
+                          計算建議值 {data.adjustmentSteps !== 0 && (
+                            <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-[9px]">
+                              {data.adjustmentSteps > 0 ? '+' : ''}{data.adjustmentSteps} 格
+                            </span>
+                          )}
+                        </p>
+                        <div className="flex items-center gap-3">
+                          {(() => {
+                            const idealRadius = result.finalRadius;
+                            const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
+                            const radiusDiff = roundedIdealRadius - idealRadius;
+                            const idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
+                            
+                            const adjRadius = roundedIdealRadius + (data.adjustmentSteps * RADIUS_STEP);
+                            
+                            // If over-refraction is provided, use it for the final recommendation
+                            // Final Power = (Trial Power + OR_Corneal) + (Adj Radius - Trial Radius) * 100 * 0.058
+                            let adjPower;
+                            if (data.overRefraction !== 0) {
+                              const orSign = data.overRefractionSign === '+' ? 1 : -1;
+                              const orPowerSpectacle = Math.abs(data.overRefraction) * orSign;
+                              const orPowerCorneal = convertToCornealPlane(orPowerSpectacle);
                               
-                              <span className="text-3xl font-thin opacity-30">/</span>
+                              const trialPower = -Math.abs(data.trialPower);
+                              const powerAtTrialRadius = trialPower + orPowerCorneal;
                               
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-4xl font-light tracking-tighter">
-                                  {adjRadius.toFixed(2)}
-                                </span>
-                                <span className="text-sm opacity-60 font-medium">mm</span>
-                              </div>
-                            </>
-                          );
-                        })()}
+                              // Adjust from trial radius to final adjusted radius
+                              adjPower = powerAtTrialRadius + ((adjRadius - data.trialRadius) * 100 * CORRECTION_FACTOR);
+                            } else {
+                              adjPower = idealPower + ((adjRadius - roundedIdealRadius) * 100 * CORRECTION_FACTOR);
+                            }
+                            
+                            return (
+                              <>
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-4xl font-light tracking-tighter">
+                                    {adjPower > 0 ? '+' : ''}{adjPower.toFixed(2)}
+                                  </span>
+                                  <span className="text-sm opacity-60 font-medium">D</span>
+                                </div>
+                                
+                                <span className="text-3xl font-thin opacity-30">/</span>
+                                
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-4xl font-light tracking-tighter">
+                                    {adjRadius.toFixed(2)}
+                                  </span>
+                                  <span className="text-sm opacity-60 font-medium">mm</span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </div>
