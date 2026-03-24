@@ -1,0 +1,5 @@
+{
+  "name": "Eye Prescription & K-Value Calculator",
+  "description": "A professional tool for calculating eye prescriptions and corneal curvature radius based on Sphere, Cylinder, and K-values.",
+  "requestFramePermissions": []
+}

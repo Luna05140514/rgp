@@ -1,0 +1,477 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Eye, Calculator, Info, RefreshCw, ChevronRight, AlertCircle } from 'lucide-react';
+import { EyeData, CalculationResult } from './types';
+
+const K_CONSTANT = 337.5;
+const VERTEX_DISTANCE = 0.012; // 12mm in meters
+
+const convertToCornealPlane = (power: number): number => {
+  if (power === 0) return 0;
+  return power / (1 - VERTEX_DISTANCE * power);
+};
+
+export default function App() {
+  // RGP State
+  const [rgpData, setRgpData] = useState<EyeData>({
+    sphere: 0,
+    sphereSign: '-',
+    cylinder: 0,
+    flatRadius: 0,
+    steepRadius: 0,
+    adjustmentSteps: 0,
+  });
+
+  const calculateEye = (data: EyeData): CalculationResult | null => {
+    if (data.flatRadius === 0 || data.steepRadius === 0) return null;
+
+    const flatRadius = data.flatRadius;
+    const steepRadius = data.steepRadius;
+    const radiusDiff = Math.abs(flatRadius - steepRadius);
+    
+    // Corneal Astigmatism = (337.5 / flatRadius) - (337.5 / steepRadius)
+    const cornealAstigmatism = (K_CONSTANT / flatRadius) - (K_CONSTANT / steepRadius);
+    
+    // Vertex Distance Conversion (12mm)
+    const specSphere = data.sphereSign === '+' ? Math.abs(data.sphere) : -Math.abs(data.sphere);
+    const specCylinder = -Math.abs(data.cylinder);
+    
+    // Convert principal meridians to corneal plane
+    const clPowerFlat = convertToCornealPlane(specSphere);
+    const clPowerSteep = convertToCornealPlane(specSphere + specCylinder);
+    
+    const clSphere = clPowerFlat;
+    const clCylinder = clPowerSteep - clPowerFlat;
+    
+    // Formula: Result = Sphere_cl + (Cylinder_cl - CornealAstigmatism) / 2
+    const finalPower = clSphere + (clCylinder - cornealAstigmatism) / 2;
+    const finalRadius = flatRadius;
+
+    return {
+      flatRadius,
+      steepRadius,
+      radiusDiff,
+      cornealAstigmatism,
+      finalPower,
+      finalRadius,
+    };
+  };
+
+  const CORRECTION_FACTOR = 0.058;
+  const RADIUS_STEP = 0.05;
+
+  const rgpResult = useMemo(() => calculateEye(rgpData), [rgpData]);
+
+  const handleInputChange = (
+    field: keyof EyeData,
+    value: string | '+' | '-' | number
+  ) => {
+    if (field === 'sphereSign') {
+      setRgpData({ ...rgpData, sphereSign: value as '+' | '-' });
+    } else if (field === 'adjustmentSteps') {
+      setRgpData({ ...rgpData, adjustmentSteps: value as number });
+    } else {
+      const valStr = value as string;
+      // Fixed-point logic: strip all non-digits and treat as value / 100
+      const cleanStr = valStr.replace(/\D/g, '');
+      
+      const isDegreeField = field === 'sphere' || field === 'cylinder';
+      const isRadiusField = field === 'flatRadius' || field === 'steepRadius';
+      
+      let numValue = parseFloat(valStr) || 0;
+
+      if (isDegreeField && cleanStr.length > 0) {
+        numValue = parseInt(cleanStr, 10) / 100;
+      } else if (isRadiusField && cleanStr.length > 0) {
+        // Radius fields: 2 decimal places (e.g., 760 -> 7.60)
+        numValue = parseInt(cleanStr, 10) / 100;
+      }
+
+      // Store as absolute value, sign is handled separately or fixed
+      numValue = Math.abs(numValue);
+      setRgpData({ ...rgpData, [field]: numValue });
+    }
+  };
+
+  const resetAll = () => {
+    setRgpData({
+      sphere: 0,
+      sphereSign: '-',
+      cylinder: 0,
+      flatRadius: 0,
+      steepRadius: 0,
+      adjustmentSteps: 0,
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f5f5f5] text-[#1a1a1a] font-sans p-4 md:p-8">
+      <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-6">
+          <div>
+            <h1 className="text-3xl font-light tracking-tight flex items-center gap-3">
+              <Calculator className="w-8 h-8 text-blue-600" />
+              角膜弧度計算程式
+            </h1>
+            <p className="text-gray-500 mt-1 text-sm">Eye Prescription & K-Value Calculator</p>
+          </div>
+          <button 
+            onClick={resetAll}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            <RefreshCw className="w-4 h-4" />
+            重設資料
+          </button>
+        </header>
+
+        {/* Eye Data Grid */}
+        <div className="max-w-2xl mx-auto">
+          <EyeSection 
+            title="RGP" 
+            data={rgpData} 
+            result={rgpResult}
+            onChange={handleInputChange}
+          />
+        </div>
+
+        {/* Summary Footer */}
+        <footer className="text-center text-xs text-gray-400 pt-8 border-t border-gray-200">
+          <p>© 2026 角膜弧度計算程式 • 專業眼科工具</p>
+          <p className="mt-1">計算公式: 近視 + (閃光 - 角膜散光) ÷ 2</p>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+interface EyeSectionProps {
+  title: string;
+  data: EyeData;
+  result: CalculationResult | null;
+  onChange: (field: keyof EyeData, value: any) => void;
+}
+
+function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
+  const CORRECTION_FACTOR = 0.058;
+  const RADIUS_STEP = 0.05;
+
+  const clSphere = useMemo(() => {
+    const s = data.sphereSign === '+' ? Math.abs(data.sphere) : -Math.abs(data.sphere);
+    const converted = convertToCornealPlane(s);
+    return `${converted > 0 ? '+' : ''}${converted.toFixed(2)}`;
+  }, [data.sphere, data.sphereSign]);
+
+  const clCylinder = useMemo(() => {
+    const s = data.sphereSign === '+' ? Math.abs(data.sphere) : -Math.abs(data.sphere);
+    const c = -Math.abs(data.cylinder);
+    const pFlat = convertToCornealPlane(s);
+    const pSteep = convertToCornealPlane(s + c);
+    const converted = pSteep - pFlat;
+    return `${converted > 0 ? '+' : ''}${converted.toFixed(2)}`;
+  }, [data.sphere, data.sphereSign, data.cylinder]);
+
+  return (
+    <motion.section 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col"
+    >
+      <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
+        <h2 className="text-xl font-medium flex items-center gap-2">
+          <Eye className="w-5 h-5 text-blue-500" />
+          {title}
+        </h2>
+        {result && (
+          <span className="text-xs font-bold px-2 py-1 bg-green-100 text-green-700 rounded-md uppercase">
+            計算完成
+          </span>
+        )}
+      </div>
+
+      <div className="p-6 space-y-6 flex-grow">
+        <div className="grid grid-cols-2 gap-4">
+          <InputGroup 
+            label="眼鏡近視 (Sphere)" 
+            value={data.sphere} 
+            onChange={(v) => onChange('sphere', v)} 
+            sign={data.sphereSign}
+            onSignChange={(s) => onChange('sphereSign', s)}
+            allowSignToggle
+            secondaryValue={`CL: ${clSphere}`}
+          />
+          <InputGroup 
+            label="眼鏡散光 (Cylinder)" 
+            value={data.cylinder} 
+            onChange={(v) => onChange('cylinder', v)} 
+            sign="-"
+            secondaryValue={`CL: ${clCylinder}`}
+          />
+          <InputGroup 
+            label="平K半徑 (Flat R)" 
+            value={data.flatRadius} 
+            onChange={(v) => onChange('flatRadius', v)} 
+            placeholder="如 7.60" 
+            precision={2}
+            secondaryValue={data.flatRadius > 0 ? `${(K_CONSTANT / data.flatRadius).toFixed(2)} D` : undefined}
+          />
+          <InputGroup 
+            label="陡K半徑 (Steep R)" 
+            value={data.steepRadius} 
+            onChange={(v) => onChange('steepRadius', v)} 
+            placeholder="如 7.40" 
+            precision={2}
+            secondaryValue={data.steepRadius > 0 ? `${(K_CONSTANT / data.steepRadius).toFixed(2)} D` : undefined}
+          />
+        </div>
+
+        {/* Results Area */}
+        <div className="mt-8 pt-6 border-t border-gray-100">
+          <AnimatePresence mode="wait">
+            {result ? (
+              <motion.div
+                key="result"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="space-y-4"
+              >
+                <div className="flex flex-col gap-4">
+                  {/* Box 1: Ideal Value */}
+                  <div className="bg-blue-600 p-5 rounded-2xl text-white shadow-lg shadow-blue-200 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-3 opacity-10">
+                      <Calculator className="w-16 h-16" />
+                    </div>
+                    
+                    <div className="relative z-10">
+                      <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">理想值 (Ideal)</p>
+                      <div className="flex items-center gap-3">
+                        {(() => {
+                          const idealRadius = result.finalRadius;
+                          const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
+                          const radiusDiff = roundedIdealRadius - idealRadius;
+                          const idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
+                          
+                          return (
+                            <>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-4xl font-light tracking-tighter">
+                                  {idealPower > 0 ? '+' : ''}{idealPower.toFixed(2)}
+                                </span>
+                                <span className="text-sm opacity-60 font-medium">D</span>
+                              </div>
+                              
+                              <span className="text-3xl font-thin opacity-30">/</span>
+                              
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-4xl font-light tracking-tighter">
+                                  {roundedIdealRadius.toFixed(2)}
+                                </span>
+                                <span className="text-sm opacity-60 font-medium">mm</span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Adjustment Buttons */}
+                  <div className="flex items-center justify-center gap-3 py-2">
+                    <button
+                      onClick={() => onChange('adjustmentSteps', data.adjustmentSteps - 1)}
+                      className="flex-1 bg-white border border-gray-200 hover:border-blue-400 text-blue-600 px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                    >
+                      緊一格 (-0.05)
+                    </button>
+                    
+                    <button
+                      onClick={() => onChange('adjustmentSteps', 0)}
+                      className="bg-gray-100 border border-gray-200 hover:bg-gray-200 text-gray-500 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                    >
+                      重置
+                    </button>
+
+                    <button
+                      onClick={() => onChange('adjustmentSteps', data.adjustmentSteps + 1)}
+                      className="flex-1 bg-white border border-gray-200 hover:border-blue-400 text-blue-600 px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                    >
+                      鬆一格 (+0.05)
+                    </button>
+                  </div>
+
+                  {/* Box 2: Adjusted Value */}
+                  <div className="bg-blue-500 p-5 rounded-2xl text-white shadow-lg shadow-blue-100 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-3 opacity-10">
+                      <RefreshCw className="w-16 h-16" />
+                    </div>
+                    
+                    <div className="relative z-10">
+                      <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">
+                        建議值 (Suggested) {data.adjustmentSteps !== 0 && (
+                          <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-[9px]">
+                            {data.adjustmentSteps > 0 ? '+' : ''}{data.adjustmentSteps} 格
+                          </span>
+                        )}
+                      </p>
+                      <div className="flex items-center gap-3">
+                        {(() => {
+                          const idealRadius = result.finalRadius;
+                          const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
+                          const radiusDiff = roundedIdealRadius - idealRadius;
+                          const idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
+                          
+                          const adjRadius = roundedIdealRadius + (data.adjustmentSteps * RADIUS_STEP);
+                          const adjPower = idealPower + (data.adjustmentSteps * RADIUS_STEP * 100 * CORRECTION_FACTOR);
+                          
+                          return (
+                            <>
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-4xl font-light tracking-tighter">
+                                  {adjPower > 0 ? '+' : ''}{adjPower.toFixed(2)}
+                                </span>
+                                <span className="text-sm opacity-60 font-medium">D</span>
+                              </div>
+                              
+                              <span className="text-3xl font-thin opacity-30">/</span>
+                              
+                              <div className="flex items-baseline gap-1">
+                                <span className="text-4xl font-light tracking-tighter">
+                                  {adjRadius.toFixed(2)}
+                                </span>
+                                <span className="text-sm opacity-60 font-medium">mm</span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center py-10 text-gray-300 gap-3"
+              >
+                <AlertCircle className="w-10 h-10" />
+                <p className="text-sm font-medium">請輸入 K 值以開始計算</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function InputGroup({ 
+  label, 
+  value, 
+  onChange, 
+  placeholder = "0.00",
+  sign,
+  onSignChange,
+  allowSignToggle = false,
+  secondaryValue,
+  precision = 2
+}: { 
+  label: string, 
+  value: number, 
+  onChange: (v: string) => void, 
+  placeholder?: string,
+  sign?: '+' | '-',
+  onSignChange?: (s: '+' | '-') => void,
+  allowSignToggle?: boolean,
+  secondaryValue?: string,
+  precision?: number
+}) {
+  const [localValue, setLocalValue] = useState<string>(value === 0 ? '' : value.toString());
+
+  useEffect(() => {
+    if (value === 0) {
+      setLocalValue('');
+    } else {
+      const currentNum = parseFloat(localValue);
+      // If the numeric value changed significantly (not just typing decimals), update local state
+      if (isNaN(currentNum) || currentNum !== value) {
+        setLocalValue(value.toFixed(precision));
+      }
+    }
+  }, [value, precision]);
+
+  const handleLocalChange = (v: string) => {
+    setLocalValue(v);
+    onChange(v);
+  };
+
+  const handleBlur = () => {
+    if (value !== 0) {
+      setLocalValue(value.toFixed(precision));
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-center px-1">
+        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</label>
+      </div>
+      <div className="relative flex items-center">
+        {sign && (
+          <div className="absolute left-0 flex items-center h-full">
+            {allowSignToggle ? (
+              <button
+                onClick={() => onSignChange?.(sign === '+' ? '-' : '+')}
+                className="h-full px-3 text-lg font-bold text-blue-600 hover:bg-gray-100 rounded-l-xl transition-colors border-r border-gray-100"
+              >
+                {sign}
+              </button>
+            ) : (
+              <span className="px-4 text-lg font-medium text-gray-400 border-r border-gray-100">
+                {sign}
+              </span>
+            )}
+          </div>
+        )}
+        <input
+          type="text"
+          inputMode="decimal"
+          value={localValue}
+          onChange={(e) => handleLocalChange(e.target.value)}
+          onBlur={handleBlur}
+          placeholder={placeholder}
+          className={`w-full py-3 pr-4 bg-gray-50 border border-transparent focus:border-blue-500 focus:bg-white rounded-xl outline-none transition-all text-base font-medium ${
+            sign ? 'pl-14' : 'pl-4'
+          }`}
+        />
+      </div>
+      {secondaryValue && (
+        <div className="flex justify-end px-1">
+          <span className="text-[10px] font-mono text-blue-500 font-bold">{secondaryValue}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultCard({ label, value, unit, description }: { label: string, value: string, unit: string, description?: string }) {
+  return (
+    <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex flex-col justify-center">
+      <div className="flex justify-between items-start mb-1">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
+        {description && <span className="text-[9px] text-gray-300 font-mono">{description}</span>}
+      </div>
+      <div className="flex items-baseline gap-1">
+        <span className="text-2xl font-medium text-gray-800">{value}</span>
+        <span className="text-xs font-bold text-gray-400 uppercase">{unit}</span>
+      </div>
+    </div>
+  );
+}
