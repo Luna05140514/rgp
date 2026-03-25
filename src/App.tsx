@@ -255,7 +255,7 @@ function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps)
             <div className="w-1 h-3 bg-blue-500 rounded-full" />
             角膜弧度
           </h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2">
             <InputGroup 
               label="平Ｋ" 
               value={data.flatRadius} 
@@ -283,12 +283,11 @@ function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps)
             <div className="w-1 h-3 bg-blue-500 rounded-full" />
             試片
           </h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2">
             <InputGroup 
               label="度數" 
               value={data.trialPower} 
               onChange={(v) => onChange('trialPower', v)} 
-              placeholder="如 3.00" 
               sign="-"
               inline
             />
@@ -296,7 +295,6 @@ function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps)
               label="弧度" 
               value={data.trialRadius} 
               onChange={(v) => onChange('trialRadius', v)} 
-              placeholder="如 7.60" 
               precision={2}
               inline
             />
@@ -304,39 +302,41 @@ function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps)
               label="插片" 
               value={data.overRefraction} 
               onChange={(v) => onChange('overRefraction', v)} 
-              placeholder="如 0.25" 
               sign={data.overRefractionSign}
               onSignChange={(s) => onChange('overRefractionSign', s)}
               allowSignToggle
               inline
             />
-            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex flex-col justify-center">
-              <div className="flex justify-between items-start mb-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">插片建議值</p>
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-medium text-blue-600">
-                  {(() => {
-                    if (!result || data.trialPower === 0 || data.trialRadius === 0) return '--';
-                    const idealRadius = result.finalRadius;
-                    const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
-                    
-                    // Ideal Power at the rounded ideal radius
-                    const idealPower = result.finalPower + ((roundedIdealRadius - result.finalRadius) * 100 * CORRECTION_FACTOR);
-                    
-                    // Target Power at the trial radius (FAP: Flatter Add Plus)
-                    // If trialRadius is flatter (larger) than roundedIdealRadius, we need more plus power.
-                    const targetPowerAtTrialRadius = idealPower + ((data.trialRadius - roundedIdealRadius) * 100 * CORRECTION_FACTOR);
-                    
-                    // OR = Target Power - Trial Power
-                    const trialPower = -Math.abs(data.trialPower);
-                    const orPowerCorneal = targetPowerAtTrialRadius - trialPower;
-                    
-                    const orPowerSpectacle = convertToSpectaclePlane(orPowerCorneal);
-                    return `${orPowerSpectacle > 0 ? '+' : ''}${orPowerSpectacle.toFixed(2)}`;
-                  })()}
-                </span>
-                <span className="text-xs font-bold text-blue-400 uppercase">D</span>
+            <div className="flex items-center gap-1">
+              <label className="text-[11px] font-bold text-blue-400 shrink-0 min-w-[1.8rem] flex flex-col items-center justify-center leading-tight tracking-tighter text-center">
+                <span>建議</span>
+                <span>插片</span>
+              </label>
+              <div className="flex-1 h-[50px] px-4 bg-blue-50 rounded-xl border border-blue-100 flex items-center">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-medium text-blue-600">
+                    {(() => {
+                      if (!result || data.trialPower === 0 || data.trialRadius === 0) return '--';
+                      const idealRadius = result.finalRadius;
+                      const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
+                      
+                      // Ideal Power at the rounded ideal radius
+                      const idealPower = result.finalPower + ((roundedIdealRadius - result.finalRadius) * 100 * CORRECTION_FACTOR);
+                      
+                      // Target Power at the trial radius (FAP: Flatter Add Plus)
+                      // If trialRadius is flatter (larger) than roundedIdealRadius, we need more plus power.
+                      const targetPowerAtTrialRadius = idealPower + ((data.trialRadius - roundedIdealRadius) * 100 * CORRECTION_FACTOR);
+                      
+                      // OR = Target Power - Trial Power
+                      const trialPower = -Math.abs(data.trialPower);
+                      const orPowerCorneal = targetPowerAtTrialRadius - trialPower;
+                      
+                      const orPowerSpectacle = convertToSpectaclePlane(orPowerCorneal);
+                      return `${orPowerSpectacle > 0 ? '+' : ''}${orPowerSpectacle.toFixed(2)}`;
+                    })()}
+                  </span>
+                  <span className="text-xs font-bold text-blue-400 uppercase">D</span>
+                </div>
               </div>
             </div>
           </div>
@@ -563,7 +563,7 @@ function InputGroup({
   label, 
   value, 
   onChange, 
-  placeholder = "0.00",
+  placeholder = "",
   sign,
   onSignChange,
   allowSignToggle = false,
@@ -608,12 +608,21 @@ function InputGroup({
   };
 
   return (
-    <div className={inline ? "flex items-center gap-2" : "space-y-1.5"}>
-      <label className={inline ? "text-[11px] font-bold text-gray-400 shrink-0 min-w-[1.25rem] flex flex-col items-center justify-center leading-none tracking-tighter" : "text-[10px] font-bold uppercase tracking-wider text-gray-400 px-1 block"}>
-        {inline ? label.split('').map((char, i) => <span key={i}>{char}</span>) : label}
-      </label>
-      <div className="flex-1 flex flex-col">
-        <div className="relative flex items-center">
+    <div className={inline ? "flex flex-col" : "space-y-1.5"}>
+      <div className={inline ? "flex items-center gap-1" : "space-y-1.5"}>
+        <label className={inline ? "text-[11px] font-bold text-gray-400 shrink-0 min-w-[1.8rem] flex flex-col items-center justify-center leading-tight tracking-tighter text-center" : "text-[10px] font-bold uppercase tracking-wider text-gray-400 px-1 block"}>
+          {inline ? (
+            label.length > 2 ? (
+              <>
+                <span>{label.slice(0, 2)}</span>
+                <span>{label.slice(2)}</span>
+              </>
+            ) : (
+              label.split('').map((char, i) => <span key={i}>{char}</span>)
+            )
+          ) : label}
+        </label>
+        <div className="flex-1 relative flex items-center">
           {sign && (
             <div className="absolute left-0 flex items-center h-full">
               {allowSignToggle ? (
@@ -642,12 +651,12 @@ function InputGroup({
             }`}
           />
         </div>
-        {secondaryValue && (
-          <div className="flex justify-end px-1 mt-0.5">
-            <span className="text-[10px] font-mono text-blue-500 font-bold">{secondaryValue}</span>
-          </div>
-        )}
       </div>
+      {secondaryValue && (
+        <div className="flex justify-end px-1 mt-0.5">
+          <span className="text-[10px] font-mono text-blue-500 font-bold">{secondaryValue}</span>
+        </div>
+      )}
     </div>
   );
 }
