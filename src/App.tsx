@@ -34,6 +34,7 @@ export default function App() {
     overRefraction: 0,
     overRefractionSign: '-',
     adjustmentSteps: 0,
+    fittingMethod: 'calculation',
   });
 
   const calculateEye = (data: EyeData): CalculationResult | null => {
@@ -57,8 +58,10 @@ export default function App() {
     const clSphere = clPowerFlat;
     const clCylinder = clPowerSteep - clPowerFlat;
     
-    // Formula: Result = Sphere_cl + (Cylinder_cl - CornealAstigmatism) / 2
-    const finalPower = clSphere + (clCylinder - cornealAstigmatism) / 2;
+    // 使用者要求：公式調整：近視 - abs((閃光 - 角膜散光) / 2)
+    // 這表示不論散光差異正負，一律扣除其絕對值的二分之一（增加負號度數）
+    const residualCyl = clCylinder - cornealAstigmatism;
+    const finalPower = clSphere - Math.abs(residualCyl / 2);
     const finalRadius = flatRadius;
 
     return {
@@ -80,8 +83,8 @@ export default function App() {
     field: keyof EyeData,
     value: string | '+' | '-' | number
   ) => {
-    if (field === 'sphereSign' || field === 'overRefractionSign') {
-      setRgpData({ ...rgpData, [field]: value as '+' | '-' });
+    if (field === 'sphereSign' || field === 'overRefractionSign' || field === 'fittingMethod') {
+      setRgpData({ ...rgpData, [field]: value as any });
     } else if (field === 'adjustmentSteps') {
       setRgpData({ ...rgpData, adjustmentSteps: value as number });
     } else {
@@ -119,12 +122,18 @@ export default function App() {
       overRefraction: 0,
       overRefractionSign: '-',
       adjustmentSteps: 0,
+      fittingMethod: 'calculation',
     });
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] text-[#1a1a1a] font-sans p-4 md:p-8">
+    <div className="min-h-screen bg-[#f5f5f5] text-[#1a1a1a] font-sans p-4 md:p-8 relative">
       <div className="max-w-4xl mx-auto space-y-8">
+        {/* Producer Badge */}
+        <div className="absolute top-4 right-4 md:top-8 md:right-8">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">製作人 ＴＯＮＹ</span>
+        </div>
+
         {/* Header */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 pb-6">
           <div>
@@ -132,17 +141,6 @@ export default function App() {
               <Calculator className="w-8 h-8 text-blue-600" />
               RGP處方計算
             </h1>
-            <p className="text-gray-500 mt-1 text-sm">Eye Prescription & K-Value Calculator</p>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">製作人 ＴＯＮＹ</span>
-            <button 
-              onClick={resetAll}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <RefreshCw className="w-4 h-4" />
-              重設資料
-            </button>
           </div>
         </header>
 
@@ -153,6 +151,7 @@ export default function App() {
             data={rgpData} 
             result={rgpResult}
             onChange={handleInputChange}
+            onReset={resetAll}
           />
         </div>
 
@@ -171,9 +170,10 @@ interface EyeSectionProps {
   data: EyeData;
   result: CalculationResult | null;
   onChange: (field: keyof EyeData, value: any) => void;
+  onReset: () => void;
 }
 
-function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
+function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps) {
   const CORRECTION_FACTOR = 0.058;
   const RADIUS_STEP = 0.05;
 
@@ -203,11 +203,20 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
           <Eye className="w-5 h-5 text-blue-500" />
           {title}
         </h2>
-        {result && (
-          <span className="text-xs font-bold px-2 py-1 bg-green-100 text-green-700 rounded-md uppercase">
-            計算完成
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onReset}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-500 hover:bg-gray-50 transition-colors shadow-sm active:scale-95"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            重設資料
+          </button>
+          {result && (
+            <span className="text-xs font-bold px-2 py-1.5 bg-green-100 text-green-700 rounded-lg uppercase">
+              計算完成
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="p-6 space-y-6 flex-grow">
@@ -300,13 +309,38 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
 
         {/* Results Area */}
         <div className="mt-8 pt-6 border-t border-gray-100">
+          {/* Fitting Method Tabs */}
+          <div className="flex p-1 bg-gray-100 rounded-2xl mb-6">
+            <button
+              onClick={() => onChange('fittingMethod', 'calculation')}
+              className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
+                data.fittingMethod === 'calculation'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              計算驗配法
+            </button>
+            <button
+              onClick={() => onChange('fittingMethod', 'trial')}
+              className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
+                data.fittingMethod === 'trial'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              試片驗配法
+            </button>
+          </div>
+
           <AnimatePresence mode="wait">
             {result ? (
               <motion.div
-                key="result"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
+                key={data.fittingMethod}
+                initial={{ opacity: 0, x: data.fittingMethod === 'calculation' ? -10 : 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: data.fittingMethod === 'calculation' ? 10 : -10 }}
+                transition={{ duration: 0.2 }}
                 className="space-y-4"
               >
                 <div className="flex flex-col gap-4">
@@ -318,13 +352,29 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
                       </div>
                       
                       <div className="relative z-10">
-                        <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">計算理想值</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">
+                          {data.fittingMethod === 'calculation' ? '計算理想值' : '試片理想值'}
+                        </p>
                         <div className="flex items-center gap-3">
                           {(() => {
-                            const idealRadius = result.finalRadius;
-                            const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
-                            const radiusDiff = roundedIdealRadius - idealRadius;
-                            const idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
+                            let idealPower: number;
+                            let idealRadius: number;
+
+                            if (data.fittingMethod === 'calculation') {
+                              const baseIdealRadius = result.finalRadius;
+                              idealRadius = Math.round(baseIdealRadius / RADIUS_STEP) * RADIUS_STEP;
+                              const radiusDiff = idealRadius - baseIdealRadius;
+                              idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
+                            } else {
+                              // 試片理想值＝插片度數轉換成隱眼度數+試片度數 / 試片弧度
+                              const orSign = data.overRefractionSign === '+' ? 1 : -1;
+                              const orPowerSpectacle = Math.abs(data.overRefraction) * orSign;
+                              const orPowerCorneal = convertToCornealPlane(orPowerSpectacle);
+                              
+                              const trialPower = -Math.abs(data.trialPower);
+                              idealPower = trialPower + orPowerCorneal;
+                              idealRadius = data.trialRadius;
+                            }
                             
                             return (
                               <>
@@ -339,7 +389,7 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
                                 
                                 <div className="flex items-baseline gap-1">
                                   <span className="text-4xl font-light tracking-tighter">
-                                    {roundedIdealRadius.toFixed(2)}
+                                    {idealRadius.toFixed(2)}
                                   </span>
                                   <span className="text-sm opacity-60 font-medium">mm</span>
                                 </div>
@@ -384,7 +434,7 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
                       
                       <div className="relative z-10">
                         <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">
-                          計算建議值 {data.adjustmentSteps !== 0 && (
+                          {data.fittingMethod === 'calculation' ? '計算建議值' : '試片建議值'} {data.adjustmentSteps !== 0 && (
                             <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-[9px]">
                               {data.adjustmentSteps > 0 ? '+' : ''}{data.adjustmentSteps} 格
                             </span>
@@ -392,28 +442,29 @@ function EyeSection({ title, data, result, onChange }: EyeSectionProps) {
                         </p>
                         <div className="flex items-center gap-3">
                           {(() => {
-                            const idealRadius = result.finalRadius;
-                            const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
-                            const radiusDiff = roundedIdealRadius - idealRadius;
-                            const idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
-                            
-                            const adjRadius = roundedIdealRadius + (data.adjustmentSteps * RADIUS_STEP);
-                            
-                            // If over-refraction is provided, use it for the final recommendation
-                            // Final Power = (Trial Power + OR_Corneal) + (Adj Radius - Trial Radius) * 100 * 0.058
-                            let adjPower;
-                            if (data.overRefraction !== 0) {
+                            let adjPower: number;
+                            let adjRadius: number;
+
+                            if (data.fittingMethod === 'calculation') {
+                              const baseIdealRadius = result.finalRadius;
+                              const roundedIdealRadius = Math.round(baseIdealRadius / RADIUS_STEP) * RADIUS_STEP;
+                              const radiusDiff = roundedIdealRadius - baseIdealRadius;
+                              const idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
+                              
+                              adjRadius = roundedIdealRadius + (data.adjustmentSteps * RADIUS_STEP);
+                              adjPower = idealPower + ((adjRadius - roundedIdealRadius) * 100 * CORRECTION_FACTOR);
+                            } else {
+                              // 試片計算值 (Adjusted Trial Value)
                               const orSign = data.overRefractionSign === '+' ? 1 : -1;
                               const orPowerSpectacle = Math.abs(data.overRefraction) * orSign;
                               const orPowerCorneal = convertToCornealPlane(orPowerSpectacle);
                               
                               const trialPower = -Math.abs(data.trialPower);
-                              const powerAtTrialRadius = trialPower + orPowerCorneal;
-                              
-                              // Adjust from trial radius to final adjusted radius
-                              adjPower = powerAtTrialRadius + ((adjRadius - data.trialRadius) * 100 * CORRECTION_FACTOR);
-                            } else {
-                              adjPower = idealPower + ((adjRadius - roundedIdealRadius) * 100 * CORRECTION_FACTOR);
+                              const idealPower = trialPower + orPowerCorneal;
+                              const idealRadius = data.trialRadius;
+
+                              adjRadius = idealRadius + (data.adjustmentSteps * RADIUS_STEP);
+                              adjPower = idealPower + ((adjRadius - idealRadius) * 100 * CORRECTION_FACTOR);
                             }
                             
                             return (

@@ -9,6 +9,7 @@ export interface EyeData {
   overRefraction: number;
   overRefractionSign: '+' | '-';
   adjustmentSteps: number;
+  fittingMethod: 'calculation' | 'trial';
 }
 
 export interface CalculationResult {
