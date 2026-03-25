@@ -146,6 +146,13 @@ export default function App() {
           </div>
         </header>
 
+        {/* Top Warning */}
+        <div className="bg-amber-50 border border-amber-100 rounded-xl py-2 px-4 text-center shadow-sm">
+          <p className="text-xs font-medium text-amber-800">
+            ⚠️ 本工具僅供參考，實際驗配需由專業驗光人員評估
+          </p>
+        </div>
+
         {/* Eye Data Grid */}
         <div className="max-w-2xl mx-auto">
           <EyeSection 
@@ -158,8 +165,12 @@ export default function App() {
         </div>
 
         {/* Summary Footer */}
-        <footer className="text-center text-xs text-gray-400 pt-8 border-t border-gray-200">
-          <p>© 2026 RGP處方計算 • 專業眼科工具</p>
+        <footer className="text-center space-y-4 pt-8 border-t border-gray-200">
+          <div className="max-w-2xl mx-auto px-4">
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              📜 本系統提供之資料僅供參考，不構成醫療或驗配建議。使用者應自行承擔使用本工具之風險，實際配戴需經專業驗光人員檢測與評估
+            </p>
+          </div>
         </footer>
       </div>
     </div>
@@ -538,6 +549,13 @@ function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps)
                         </div>
                       </div>
                     </div>
+                  </div>
+                  
+                  {/* Middle Warning */}
+                  <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <p className="text-[11px] text-gray-500 leading-relaxed text-center font-medium">
+                      本結果為理論換算值，未考量角膜形態與配戴狀況，請勿直接作為配戴依據
+                    </p>
                   </div>
                 </div>
               </motion.div>
