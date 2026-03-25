@@ -8,7 +8,8 @@ export interface EyeData {
   trialRadius: number;
   overRefraction: number;
   overRefractionSign: '+' | '-';
-  adjustmentSteps: number;
+  calculationAdjustment: number;
+  trialAdjustment: number;
   fittingMethod: 'calculation' | 'trial';
 }
 

@@ -33,7 +33,8 @@ export default function App() {
     trialRadius: 0,
     overRefraction: 0,
     overRefractionSign: '-',
-    adjustmentSteps: 0,
+    calculationAdjustment: 0,
+    trialAdjustment: 0,
     fittingMethod: 'calculation',
   });
 
@@ -85,8 +86,8 @@ export default function App() {
   ) => {
     if (field === 'sphereSign' || field === 'overRefractionSign' || field === 'fittingMethod') {
       setRgpData({ ...rgpData, [field]: value as any });
-    } else if (field === 'adjustmentSteps') {
-      setRgpData({ ...rgpData, adjustmentSteps: value as number });
+    } else if (field === 'calculationAdjustment' || field === 'trialAdjustment') {
+      setRgpData({ ...rgpData, [field]: value as number });
     } else {
       const valStr = value as string;
       // Fixed-point logic: strip all non-digits and treat as value / 100
@@ -121,7 +122,8 @@ export default function App() {
       trialRadius: 0,
       overRefraction: 0,
       overRefractionSign: '-',
-      adjustmentSteps: 0,
+      calculationAdjustment: 0,
+      trialAdjustment: 0,
       fittingMethod: 'calculation',
     });
   };
@@ -158,7 +160,6 @@ export default function App() {
         {/* Summary Footer */}
         <footer className="text-center text-xs text-gray-400 pt-8 border-t border-gray-200">
           <p>© 2026 RGP處方計算 • 專業眼科工具</p>
-          <p className="mt-1">計算公式: 近視 + (閃光 - 角膜散光) ÷ 2</p>
         </footer>
       </div>
     </div>
@@ -404,21 +405,30 @@ function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps)
                   {/* Adjustment Buttons */}
                   <div className="flex items-center justify-center gap-3 py-2">
                     <button
-                      onClick={() => onChange('adjustmentSteps', data.adjustmentSteps - 1)}
+                      onClick={() => {
+                        const field = data.fittingMethod === 'calculation' ? 'calculationAdjustment' : 'trialAdjustment';
+                        onChange(field, data[field] - 1);
+                      }}
                       className="flex-1 bg-white border border-gray-200 hover:border-blue-400 text-blue-600 px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
                     >
                       緊一格
                     </button>
                     
                     <button
-                      onClick={() => onChange('adjustmentSteps', 0)}
+                      onClick={() => {
+                        const field = data.fittingMethod === 'calculation' ? 'calculationAdjustment' : 'trialAdjustment';
+                        onChange(field, 0);
+                      }}
                       className="bg-gray-100 border border-gray-200 hover:bg-gray-200 text-gray-500 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
                     >
                       重置
                     </button>
 
                     <button
-                      onClick={() => onChange('adjustmentSteps', data.adjustmentSteps + 1)}
+                      onClick={() => {
+                        const field = data.fittingMethod === 'calculation' ? 'calculationAdjustment' : 'trialAdjustment';
+                        onChange(field, data[field] + 1);
+                      }}
                       className="flex-1 bg-white border border-gray-200 hover:border-blue-400 text-blue-600 px-4 py-3 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
                     >
                       鬆一格
@@ -434,11 +444,15 @@ function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps)
                       
                       <div className="relative z-10">
                         <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-2">
-                          {data.fittingMethod === 'calculation' ? '計算建議值' : '試片建議值'} {data.adjustmentSteps !== 0 && (
-                            <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-[9px]">
-                              {data.adjustmentSteps > 0 ? '+' : ''}{data.adjustmentSteps} 格
-                            </span>
-                          )}
+                          {data.fittingMethod === 'calculation' ? '計算建議值' : '試片建議值'} {(() => {
+                            const steps = data.fittingMethod === 'calculation' ? data.calculationAdjustment : data.trialAdjustment;
+                            if (steps === 0) return null;
+                            return (
+                              <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-[9px]">
+                                {steps > 0 ? '+' : ''}{steps} 格
+                              </span>
+                            );
+                          })()}
                         </p>
                         <div className="flex items-center gap-3">
                           {(() => {
@@ -451,7 +465,7 @@ function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps)
                               const radiusDiff = roundedIdealRadius - baseIdealRadius;
                               const idealPower = result.finalPower + (radiusDiff * 100 * CORRECTION_FACTOR);
                               
-                              adjRadius = roundedIdealRadius + (data.adjustmentSteps * RADIUS_STEP);
+                              adjRadius = roundedIdealRadius + (data.calculationAdjustment * RADIUS_STEP);
                               adjPower = idealPower + ((adjRadius - roundedIdealRadius) * 100 * CORRECTION_FACTOR);
                             } else {
                               // 試片計算值 (Adjusted Trial Value)
@@ -463,7 +477,7 @@ function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps)
                               const idealPower = trialPower + orPowerCorneal;
                               const idealRadius = data.trialRadius;
 
-                              adjRadius = idealRadius + (data.adjustmentSteps * RADIUS_STEP);
+                              adjRadius = idealRadius + (data.trialAdjustment * RADIUS_STEP);
                               adjPower = idealPower + ((adjRadius - idealRadius) * 100 * CORRECTION_FACTOR);
                             }
                             
