@@ -220,90 +220,124 @@ function EyeSection({ title, data, result, onChange, onReset }: EyeSectionProps)
         </div>
       </div>
 
-      <div className="p-6 space-y-6 flex-grow">
-        <div className="grid grid-cols-2 gap-4">
-          <InputGroup 
-            label="眼鏡近視" 
-            value={data.sphere} 
-            onChange={(v) => onChange('sphere', v)} 
-            sign={data.sphereSign}
-            onSignChange={(s) => onChange('sphereSign', s)}
-            allowSignToggle
-            secondaryValue={`CL: ${clSphere}`}
-          />
-          <InputGroup 
-            label="眼鏡散光" 
-            value={data.cylinder} 
-            onChange={(v) => onChange('cylinder', v)} 
-            sign="-"
-            secondaryValue={`CL: ${clCylinder}`}
-          />
-          <InputGroup 
-            label="平K" 
-            value={data.flatRadius} 
-            onChange={(v) => onChange('flatRadius', v)} 
-            placeholder="如 7.60" 
-            precision={2}
-            secondaryValue={data.flatRadius > 0 ? `${(K_CONSTANT / data.flatRadius).toFixed(2)} D` : undefined}
-          />
-          <InputGroup 
-            label="陡K" 
-            value={data.steepRadius} 
-            onChange={(v) => onChange('steepRadius', v)} 
-            placeholder="如 7.40" 
-            precision={2}
-            secondaryValue={data.steepRadius > 0 ? `${(K_CONSTANT / data.steepRadius).toFixed(2)} D` : undefined}
-          />
-          <InputGroup 
-            label="試片度數" 
-            value={data.trialPower} 
-            onChange={(v) => onChange('trialPower', v)} 
-            placeholder="如 3.00" 
-            sign="-"
-          />
-          <InputGroup 
-            label="試片弧度" 
-            value={data.trialRadius} 
-            onChange={(v) => onChange('trialRadius', v)} 
-            placeholder="如 7.60" 
-            precision={2}
-          />
-          <InputGroup 
-            label="插片度數" 
-            value={data.overRefraction} 
-            onChange={(v) => onChange('overRefraction', v)} 
-            placeholder="如 0.25" 
-            sign={data.overRefractionSign}
-            onSignChange={(s) => onChange('overRefractionSign', s)}
-            allowSignToggle
-          />
-          <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex flex-col justify-center">
-            <div className="flex justify-between items-start mb-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">插片建議值</p>
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-medium text-blue-600">
-                {(() => {
-                  if (!result || data.trialPower === 0 || data.trialRadius === 0) return '--';
-                  const idealRadius = result.finalRadius;
-                  const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
-                  
-                  // Ideal Power at the rounded ideal radius
-                  const idealPower = result.finalPower + ((roundedIdealRadius - result.finalRadius) * 100 * CORRECTION_FACTOR);
-                  
-                  // Target Power at the trial radius (FAP: Flatter Add Plus)
-                  // If trialRadius is flatter (larger) than roundedIdealRadius, we need more plus power.
-                  const targetPowerAtTrialRadius = idealPower + ((data.trialRadius - roundedIdealRadius) * 100 * CORRECTION_FACTOR);
-                  
-                  // OR = Target Power - Trial Power
-                  const trialPower = -Math.abs(data.trialPower);
-                  const orPowerCorneal = targetPowerAtTrialRadius - trialPower;
-                  
-                  const orPowerSpectacle = convertToSpectaclePlane(orPowerCorneal);
-                  return `${orPowerSpectacle > 0 ? '+' : ''}${orPowerSpectacle.toFixed(2)}`;
-                })()}
-              </span>
-              <span className="text-xs font-bold text-blue-400 uppercase">D</span>
+      <div className="p-6 space-y-8 flex-grow">
+        {/* 眼鏡 Section */}
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 px-1">
+            <div className="w-1 h-3 bg-blue-500 rounded-full" />
+            眼鏡
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <InputGroup 
+              label="Ｓ" 
+              value={data.sphere} 
+              onChange={(v) => onChange('sphere', v)} 
+              sign={data.sphereSign}
+              onSignChange={(s) => onChange('sphereSign', s)}
+              allowSignToggle
+              secondaryValue={`CL: ${clSphere}`}
+              inline
+            />
+            <InputGroup 
+              label="Ｃ" 
+              value={data.cylinder} 
+              onChange={(v) => onChange('cylinder', v)} 
+              sign="-"
+              secondaryValue={`CL: ${clCylinder}`}
+              inline
+            />
+          </div>
+        </div>
+
+        {/* 角膜弧度 Section */}
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 px-1">
+            <div className="w-1 h-3 bg-blue-500 rounded-full" />
+            角膜弧度
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <InputGroup 
+              label="平Ｋ" 
+              value={data.flatRadius} 
+              onChange={(v) => onChange('flatRadius', v)} 
+              placeholder="如 7.60" 
+              precision={2}
+              secondaryValue={data.flatRadius > 0 ? `${(K_CONSTANT / data.flatRadius).toFixed(2)} D` : undefined}
+              inline
+            />
+            <InputGroup 
+              label="陡Ｋ" 
+              value={data.steepRadius} 
+              onChange={(v) => onChange('steepRadius', v)} 
+              placeholder="如 7.40" 
+              precision={2}
+              secondaryValue={data.steepRadius > 0 ? `${(K_CONSTANT / data.steepRadius).toFixed(2)} D` : undefined}
+              inline
+            />
+          </div>
+        </div>
+
+        {/* 試片 Section */}
+        <div className="space-y-3">
+          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 px-1">
+            <div className="w-1 h-3 bg-blue-500 rounded-full" />
+            試片
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <InputGroup 
+              label="度數" 
+              value={data.trialPower} 
+              onChange={(v) => onChange('trialPower', v)} 
+              placeholder="如 3.00" 
+              sign="-"
+              inline
+            />
+            <InputGroup 
+              label="弧度" 
+              value={data.trialRadius} 
+              onChange={(v) => onChange('trialRadius', v)} 
+              placeholder="如 7.60" 
+              precision={2}
+              inline
+            />
+            <InputGroup 
+              label="插片" 
+              value={data.overRefraction} 
+              onChange={(v) => onChange('overRefraction', v)} 
+              placeholder="如 0.25" 
+              sign={data.overRefractionSign}
+              onSignChange={(s) => onChange('overRefractionSign', s)}
+              allowSignToggle
+              inline
+            />
+            <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex flex-col justify-center">
+              <div className="flex justify-between items-start mb-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-400">插片建議值</p>
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-medium text-blue-600">
+                  {(() => {
+                    if (!result || data.trialPower === 0 || data.trialRadius === 0) return '--';
+                    const idealRadius = result.finalRadius;
+                    const roundedIdealRadius = Math.round(idealRadius / RADIUS_STEP) * RADIUS_STEP;
+                    
+                    // Ideal Power at the rounded ideal radius
+                    const idealPower = result.finalPower + ((roundedIdealRadius - result.finalRadius) * 100 * CORRECTION_FACTOR);
+                    
+                    // Target Power at the trial radius (FAP: Flatter Add Plus)
+                    // If trialRadius is flatter (larger) than roundedIdealRadius, we need more plus power.
+                    const targetPowerAtTrialRadius = idealPower + ((data.trialRadius - roundedIdealRadius) * 100 * CORRECTION_FACTOR);
+                    
+                    // OR = Target Power - Trial Power
+                    const trialPower = -Math.abs(data.trialPower);
+                    const orPowerCorneal = targetPowerAtTrialRadius - trialPower;
+                    
+                    const orPowerSpectacle = convertToSpectaclePlane(orPowerCorneal);
+                    return `${orPowerSpectacle > 0 ? '+' : ''}${orPowerSpectacle.toFixed(2)}`;
+                  })()}
+                </span>
+                <span className="text-xs font-bold text-blue-400 uppercase">D</span>
+              </div>
             </div>
           </div>
         </div>
@@ -534,7 +568,8 @@ function InputGroup({
   onSignChange,
   allowSignToggle = false,
   secondaryValue,
-  precision = 2
+  precision = 2,
+  inline = false
 }: { 
   label: string, 
   value: number, 
@@ -544,7 +579,8 @@ function InputGroup({
   onSignChange?: (s: '+' | '-') => void,
   allowSignToggle?: boolean,
   secondaryValue?: string,
-  precision?: number
+  precision?: number,
+  inline?: boolean
 }) {
   const [localValue, setLocalValue] = useState<string>(value === 0 ? '' : value.toString());
 
@@ -572,44 +608,46 @@ function InputGroup({
   };
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between items-center px-1">
-        <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</label>
-      </div>
-      <div className="relative flex items-center">
-        {sign && (
-          <div className="absolute left-0 flex items-center h-full">
-            {allowSignToggle ? (
-              <button
-                onClick={() => onSignChange?.(sign === '+' ? '-' : '+')}
-                className="h-full px-3 text-lg font-bold text-blue-600 hover:bg-gray-100 rounded-l-xl transition-colors border-r border-gray-100"
-              >
-                {sign}
-              </button>
-            ) : (
-              <span className="px-4 text-lg font-medium text-gray-400 border-r border-gray-100">
-                {sign}
-              </span>
-            )}
+    <div className={inline ? "flex items-center gap-2" : "space-y-1.5"}>
+      <label className={inline ? "text-[11px] font-bold text-gray-400 shrink-0 min-w-[1.25rem] flex flex-col items-center justify-center leading-none tracking-tighter" : "text-[10px] font-bold uppercase tracking-wider text-gray-400 px-1 block"}>
+        {inline ? label.split('').map((char, i) => <span key={i}>{char}</span>) : label}
+      </label>
+      <div className="flex-1 flex flex-col">
+        <div className="relative flex items-center">
+          {sign && (
+            <div className="absolute left-0 flex items-center h-full">
+              {allowSignToggle ? (
+                <button
+                  onClick={() => onSignChange?.(sign === '+' ? '-' : '+')}
+                  className="h-full px-2.5 text-lg font-bold text-blue-600 hover:bg-gray-100 rounded-l-xl transition-colors border-r border-gray-100"
+                >
+                  {sign}
+                </button>
+              ) : (
+                <span className="px-3 text-lg font-medium text-gray-400 border-r border-gray-100">
+                  {sign}
+                </span>
+              )}
+            </div>
+          )}
+          <input
+            type="text"
+            inputMode="decimal"
+            value={localValue}
+            onChange={(e) => handleLocalChange(e.target.value)}
+            onBlur={handleBlur}
+            placeholder={placeholder}
+            className={`w-full py-3 pr-4 bg-gray-50 border border-transparent focus:border-blue-500 focus:bg-white rounded-xl outline-none transition-all text-base font-medium ${
+              sign ? 'pl-11' : 'pl-4'
+            }`}
+          />
+        </div>
+        {secondaryValue && (
+          <div className="flex justify-end px-1 mt-0.5">
+            <span className="text-[10px] font-mono text-blue-500 font-bold">{secondaryValue}</span>
           </div>
         )}
-        <input
-          type="text"
-          inputMode="decimal"
-          value={localValue}
-          onChange={(e) => handleLocalChange(e.target.value)}
-          onBlur={handleBlur}
-          placeholder={placeholder}
-          className={`w-full py-3 pr-4 bg-gray-50 border border-transparent focus:border-blue-500 focus:bg-white rounded-xl outline-none transition-all text-base font-medium ${
-            sign ? 'pl-14' : 'pl-4'
-          }`}
-        />
       </div>
-      {secondaryValue && (
-        <div className="flex justify-end px-1">
-          <span className="text-[10px] font-mono text-blue-500 font-bold">{secondaryValue}</span>
-        </div>
-      )}
     </div>
   );
 }
