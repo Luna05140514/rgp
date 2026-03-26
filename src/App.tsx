@@ -10,6 +10,8 @@ import { EyeData, CalculationResult } from './types';
 
 const K_CONSTANT = 337.5;
 const VERTEX_DISTANCE = 0.012; // 12mm in meters
+const CORRECTION_FACTOR = 0.058;
+const RADIUS_STEP = 0.05;
 
 const convertToCornealPlane = (power: number): number => {
   if (power === 0) return 0;
@@ -62,8 +64,24 @@ export default function App() {
     // 使用者要求：公式調整：近視 - abs((閃光 - 角膜散光) / 2)
     // 這表示不論散光差異正負，一律扣除其絕對值的二分之一（增加負號度數）
     const residualCyl = clCylinder - cornealAstigmatism;
-    const finalPower = clSphere - Math.abs(residualCyl / 2);
-    const finalRadius = flatRadius;
+    const basePower = clSphere - Math.abs(residualCyl / 2);
+    
+    // 使用者要求：計算驗配法調整
+    // 角膜散光小於-1.00用平ｋ＋0.1 (此處指絕對值 < 1.00)
+    // 角膜散光介於-1.00到-2.00之間用平k
+    // 角膜散光大於-2.00用平k-0.1 (此處指絕對值 > 2.00)
+    const absCornealAstig = Math.abs(cornealAstigmatism);
+    let finalRadius = flatRadius;
+    if (absCornealAstig < 1.00) {
+      finalRadius = flatRadius + 0.1;
+    } else if (absCornealAstig > 2.00) {
+      finalRadius = flatRadius - 0.1;
+    }
+
+    // 根據弧度變化調整度數 (SAM-FAP)
+    // 如果 finalRadius 比 flatRadius 平 (數值較大)，則增加正度數 (加上正值)
+    const radiusDiffForPower = finalRadius - flatRadius;
+    const finalPower = basePower + (radiusDiffForPower * 100 * CORRECTION_FACTOR);
 
     return {
       flatRadius,
@@ -74,9 +92,6 @@ export default function App() {
       finalRadius,
     };
   };
-
-  const CORRECTION_FACTOR = 0.058;
-  const RADIUS_STEP = 0.05;
 
   const rgpResult = useMemo(() => calculateEye(rgpData), [rgpData]);
 
